@@ -10,21 +10,16 @@ import joblib
 # =========================
 
 sentinel2_path = "../Imagenes_Satelitales/Sentinel2_2025.tif"
-sentinel1_path = "../Imagenes_Satelitales/SAR_2025_1.tif"
 gt_path = "../gt_2.tif"
 
 with rasterio.open(sentinel2_path) as src:
     img = src.read()
     profile = src.profile
 
-with rasterio.open(sentinel1_path) as src:
-    sar = src.read()
-
 with rasterio.open(gt_path) as src:
     gt = src.read(1)
 
 print("Shape Sentinel:", img.shape)
-print("Shape SAR:", sar.shape)
 print("Shape GroundTruth:", gt.shape)
 
 # =========================
@@ -43,14 +38,8 @@ NDVI = (B8 - B4) / (B8 + B4 + epsilon)
 NDBI = (B11 - B8) / (B11 + B8 + epsilon)
 NDWI = (B3 - B8) / (B3 + B8 + epsilon)
 
-VH = sar[0]
-VV = sar[1]
-ratio = sar[2]
-
 stack = np.stack([
-    B2, B3, B4, B8, B11,
-    NDVI, NDBI, NDWI,
-    VV, VH, ratio
+    NDVI, NDBI, NDWI
 ], axis=0)
 
 n_features, rows, cols = stack.shape
@@ -197,7 +186,7 @@ profile.update(
     nodata=-1
 )
 
-output_path = "clasificacion_final_4.tif"
+output_path = "clasificacion_final_sentinel.tif"
 
 with rasterio.open(output_path, "w", **profile) as dst:
     dst.write(cleaned.astype(rasterio.int16), 1)
@@ -227,7 +216,6 @@ print("Mapa de split guardado en:", split_path)
 # =========================
 
 features = [
-    "B2","B3","B4","B8","B11",
     "NDVI","NDBI","NDWI",
     "VV","VH","VV/VH"
 ]
@@ -240,4 +228,4 @@ for f, imp in zip(features, importances):
 # =========================
 # 11. GUARDAR MODELO
 # =========================
-joblib.dump(model, "modelo_rf_test_2.pkl")
+joblib.dump(model, "modelo_sentinel2.pkl")

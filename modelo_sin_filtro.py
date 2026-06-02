@@ -1,7 +1,7 @@
 import rasterio
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report, cohen_kappa_score, confusion_matrix
+from sklearn.metrics import accuracy_score, classification_report
 from scipy.ndimage import generic_filter, label
 import joblib
 
@@ -113,7 +113,7 @@ model = RandomForestClassifier(
 model.fit(X_train, y_train)
 
 # =========================================
-# 6. EVALUAR MODELO 
+# 6. EVALUAR MODELO y PREDECIR TODO EL MAPA
 # =========================================
 
 y_pred_test = model.predict(X_test)
@@ -125,67 +125,10 @@ print(classification_report(y_test, y_pred_test))
 
 print("\nPrediciendo mapa completo...")
 
-print("\nKappa:", cohen_kappa_score(y_test, y_pred_test))
-
-print(confusion_matrix(y_test, y_pred_test))
-
 y_pred_full = model.predict(X_full)
 
 pred = y_pred_full.reshape(rows, cols)
 
-
-# =========================
-# 7. POSTPROCESAMIENTO
-# =========================
-
-print("\nAplicando filtro espacial...")
-
-# -------------------------
-# Majority Filter
-# -------------------------
-
-def majority_filter(values):
-    values = values.astype(int)
-
-   
-    values = values[values != -1]
-
-    if len(values) == 0:
-        return -1
-
-    return np.bincount(values).argmax()
-
-filtered = generic_filter(
-    pred,
-    function=majority_filter,
-    size=3
-)
-
-# -------------------------
-# Eliminar regiones pequeñas
-# -------------------------
-
-min_pixels = 20
-
-cleaned = filtered.copy()
-
-classes = np.unique(filtered)
-
-for cls in classes:
-
-    if cls == -1:
-        continue
-
-    mask = filtered == cls
-
-    labeled, num_features = label(mask)
-
-    for region_id in range(1, num_features + 1):
-
-        region = labeled == region_id
-
-        if np.sum(region) < min_pixels:
-            cleaned[region] = 0
 
 # =========================
 # 8. GUARDAR CLASIFICACIÓN
@@ -200,7 +143,7 @@ profile.update(
 output_path = "clasificacion_final_4.tif"
 
 with rasterio.open(output_path, "w", **profile) as dst:
-    dst.write(cleaned.astype(rasterio.int16), 1)
+    dst.write(pred.astype(rasterio.int16), 1)
 
 print("\nMapa guardado en:", output_path)
 
@@ -240,4 +183,7 @@ for f, imp in zip(features, importances):
 # =========================
 # 11. GUARDAR MODELO
 # =========================
+
 joblib.dump(model, "modelo_rf_test_2.pkl")
+
+

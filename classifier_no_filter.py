@@ -57,54 +57,6 @@ pred = y_pred_full.reshape(rows, cols)
 
 print("Aplicando filtro espacial...")
 
-# -------------------------
-# Majority Filter
-# -------------------------
-
-def majority_filter(values):
-
-    values = values.astype(int)
-
-    values = values[values != -1]
-
-    if len(values) == 0:
-        return -1
-
-    return np.bincount(values).argmax()
-
-filtered = generic_filter(
-    pred,
-    function=majority_filter,
-    size=3
-)
-
-# -------------------------
-# Eliminar regiones pequeñas
-# -------------------------
-
-min_pixels = 20
-
-cleaned = filtered.copy()
-
-classes = np.unique(filtered)
-
-for cls in classes:
-
-    if cls == -1:
-        continue
-
-    mask = filtered == cls
-
-    labeled, num_features = label(mask)
-
-    for region_id in range(1, num_features + 1):
-
-        region = labeled == region_id
-
-        if np.sum(region) < min_pixels:
-            cleaned[region] = 0
-
-
 
 profile.update(
     dtype=rasterio.int16,
@@ -115,6 +67,6 @@ profile.update(
 output_path = "../Results/clasificacion_2025_ap_t_3.tif"
 
 with rasterio.open(output_path, "w", **profile) as dst:
-    dst.write(cleaned.astype(rasterio.int16), 1)
+    dst.write(pred.astype(rasterio.int16), 1)
 
 print("Mapa guardado:", output_path)
