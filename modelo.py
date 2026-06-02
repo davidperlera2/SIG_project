@@ -141,27 +141,6 @@ pred = y_pred_full.reshape(rows, cols)
 print("\nAplicando filtro espacial...")
 
 # -------------------------
-# Majority Filter
-# -------------------------
-
-def majority_filter(values):
-    values = values.astype(int)
-
-   
-    values = values[values != -1]
-
-    if len(values) == 0:
-        return -1
-
-    return np.bincount(values).argmax()
-
-filtered = generic_filter(
-    pred,
-    function=majority_filter,
-    size=3
-)
-
-# -------------------------
 # Eliminar regiones pequeñas
 # -------------------------
 
