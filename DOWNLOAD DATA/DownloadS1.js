@@ -35,11 +35,9 @@ function obtenerImagenSAR(año) {
   return s1_final;
 }
 
-
 var sar2025 = obtenerImagenSAR('2025');
 
 Map.addLayer(sar2025, {min: -25, max: 0, bands: ['VV']}, 'SAR VV (2025)', false);
-
 
 
 Export.image.toDrive({

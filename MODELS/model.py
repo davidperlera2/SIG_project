@@ -1,17 +1,18 @@
 import rasterio
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, cohen_kappa_score, confusion_matrix, ConfusionMatrixDisplay
 from scipy.ndimage import generic_filter, label
 import joblib
 
 # =========================
-# 1. CARGAR DATOS
+# 1. LOAD DATA
 # =========================
 
 sentinel2_path = "../Imagenes_Satelitales/Sentinel2_2025.tif"
 sentinel1_path = "../Imagenes_Satelitales/SAR_2025_1.tif"
-gt_path = "../gt_2.tif"
+gt_path = "../gt.tif"
 
 with rasterio.open(sentinel2_path) as src:
     img = src.read()
@@ -28,7 +29,7 @@ print("Shape SAR:", sar.shape)
 print("Shape GroundTruth:", gt.shape)
 
 # =========================
-# 2. PREPARAR FEATURES
+# 2. PREPARE FEATURES
 # =========================
 
 B2 = img[0]
@@ -56,7 +57,7 @@ stack = np.stack([
 n_features, rows, cols = stack.shape
 
 # =========================
-# 3. SPLIT ESPACIAL POR BLOQUES
+# 3. SPATIAL SPLIT BLOCK
 # =========================
 
 
@@ -77,9 +78,9 @@ for i in range(0, rows, block_size):
         else:
             test_mask[i:i+block_size, j:j+block_size] = True
 
-# =========================
-# 4. PREPARAR TRAIN Y TEST
-# =========================
+# ==============================
+# 4. PREPARE TRAIN AND TEST DATA
+# ==============================
 
 X_full = stack.reshape(n_features, rows * cols).T
 y_full = gt.reshape(rows * cols)
@@ -100,8 +101,25 @@ y_test = y_full[test_valid]
 print("Train:", X_train.shape)
 print("Test:", X_test.shape)
 
+print("\n===== PIXELS DISTRIBUTION =====")
+
+print(f"Total training pixels: {len(y_train)}")
+print(f"Total evaluation pixels: {len(y_test)}")
+
+print("\nTraining pixels per class:")
+unique_train, counts_train = np.unique(y_train, return_counts=True)
+
+for clase, cantidad in zip(unique_train, counts_train):
+    print(f"Class {clase}: {cantidad} pixels")
+
+print("\nEvaluation pixels per class:")
+unique_test, counts_test = np.unique(y_test, return_counts=True)
+
+for clase, cantidad in zip(unique_test, counts_test):
+    print(f"Class {clase}: {cantidad} pixels")
+
 # =========================
-# 5. ENTRENAR MODELO
+# 5. TRAIN MODEL
 # =========================
 
 model = RandomForestClassifier(
@@ -113,17 +131,35 @@ model = RandomForestClassifier(
 model.fit(X_train, y_train)
 
 # =========================================
-# 6. EVALUAR MODELO y PREDECIR TODO EL MAPA
+# 6. EVALUATE MODEL
 # =========================================
+
 
 y_pred_test = model.predict(X_test)
 
 print("\nAccuracy:", accuracy_score(y_test, y_pred_test))
 
-print("\nReporte de clasificación:\n")
+print("\nClassification report:\n")
 print(classification_report(y_test, y_pred_test))
 
-print("\nPrediciendo mapa completo...")
+print("\nPredicting full map...")
+
+print("\nKappa:", cohen_kappa_score(y_test, y_pred_test))
+
+print("\nGenerating confusion matrix...")
+cm = confusion_matrix(y_test, y_pred_test)
+
+fig, ax = plt.subplots(figsize=(8, 6))
+disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+disp.plot(cmap=plt.cm.Blues, ax=ax, values_format='d')
+
+plt.title("Confusion Matrix")
+plt.tight_layout()
+
+plt.savefig("confusion_matrix.png", dpi=300)
+print("Confusion matrix saved as 'confusion_matrix.png'")
+
+plt.show()
 
 y_pred_full = model.predict(X_full)
 
@@ -131,7 +167,7 @@ pred = y_pred_full.reshape(rows, cols)
 
 
 # =========================
-# 8. GUARDAR CLASIFICACIÓN
+# 7. SAVE CLASSIFICATION
 # =========================
 
 profile.update(
@@ -140,15 +176,15 @@ profile.update(
     nodata=-1
 )
 
-output_path = "clasificacion_final_4.tif"
+output_path = "final_classification.tif"
 
 with rasterio.open(output_path, "w", **profile) as dst:
     dst.write(pred.astype(rasterio.int16), 1)
 
-print("\nMapa guardado en:", output_path)
+print("\nMap saved in:", output_path)
 
 # =========================
-# 9. GUARDAR MAPA DE SPLIT
+# 9. SAVE SPLIT MAP
 # =========================
 
 split_map = np.full((rows, cols), -1)
@@ -163,10 +199,10 @@ split_path = "split_blocks.tif"
 with rasterio.open(split_path, "w", **profile) as dst:
     dst.write(split_map.astype(rasterio.int16), 1)
 
-print("Mapa de split guardado en:", split_path)
+print("Split map saved in:", split_path)
 
 # =========================
-# 10. IMPORTANCIA FEATURES
+# 10. IMPORTANCE OF FEATURES
 # =========================
 
 features = [
@@ -181,9 +217,6 @@ for f, imp in zip(features, importances):
     print(f, imp)
 
 # =========================
-# 11. GUARDAR MODELO
+# 11. SAVE MODEL
 # =========================
-
-joblib.dump(model, "modelo_rf_test_2.pkl")
-
-
+joblib.dump(model, "model_pkl")

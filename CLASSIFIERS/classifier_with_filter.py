@@ -79,7 +79,7 @@ filtered = generic_filter(
 )
 
 # -------------------------
-# Eliminar regiones pequeñas
+# Remove small regions
 # -------------------------
 
 min_pixels = 20
@@ -103,7 +103,6 @@ for cls in classes:
 
         if np.sum(region) < min_pixels:
             cleaned[region] = 0
-
 
 
 profile.update(
